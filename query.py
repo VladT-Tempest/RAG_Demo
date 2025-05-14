@@ -10,6 +10,7 @@ import chromadb
 from config import *
 import aiohttp
 from contextlib import AsyncExitStack
+import gradio as gr
 
 # Configuración del logging
 logging.basicConfig(
@@ -124,35 +125,71 @@ async def setup_query_engine():
         logger.error(f"Error durante la configuración: {str(e)}", exc_info=True)
         raise
 
-async def main():
-    try:
-        print("Iniciando sistema de consultas...")
-        query_engine = await setup_query_engine()
-        print("Sistema listo para consultas.")
+class ChatInterface:
+    def __init__(self):
+        self.query_engine = None
+        self.is_initialized = False
         
-        while True:
-            print("\nEscribe tu pregunta (o 'salir' para terminar):")
-            question = input().strip()
+    async def initialize(self):
+        if not self.is_initialized:
+            print("Iniciando sistema de consultas...")
+            self.query_engine = await setup_query_engine()
+            self.is_initialized = True
+            print("Sistema listo para consultas.")
+    
+    async def process_query(self, message):
+        if not self.is_initialized:
+            await self.initialize()
             
-            if question.lower() == 'salir':
-                break
+        if not message:
+            return "Por favor, escribe una pregunta válida."
+        
+        try:
+            response = self.query_engine.query(message)
+            if not response or str(response).strip() == "":
+                return "No se encontró una respuesta relevante para tu pregunta."
+            return str(response)
             
-            if not question:
-                print("Por favor, escribe una pregunta válida.")
-                continue
-            
-            print("\nBuscando respuesta...")
-            try:
-                response = query_engine.query(question)
-                if not response or str(response).strip() == "":
-                    print("No se encontró una respuesta relevante para tu pregunta.")
-                else:
-                    print("\nRespuesta:", response)
-                    
-            except Exception as e:
-                print(f"\nError al procesar la consulta: {str(e)}")
-                logger.error(f"Error en consulta: {str(e)}", exc_info=True)
+        except Exception as e:
+            error_msg = f"Error al procesar la consulta: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return error_msg
 
+async def main():
+    # Inicializar el chat interface
+    interface = ChatInterface()
+    await interface.initialize()
+    
+    # Configurar la interfaz de Gradio
+    demo = gr.Interface(
+        fn=interface.process_query,
+        inputs=gr.Textbox(
+            placeholder="Escribe tu pregunta aquí...",
+            label="Pregunta",
+            lines=2
+        ),
+        outputs=gr.Textbox(
+            label="Respuesta",
+            lines=10
+        ),
+        title="RAG Car Insurance chatbot",
+        description="Este proyecto implementa un sistema RAG (Retrieval-Augmented Generation) utilizando un dataset de seguros para crear un chatbot inteligente.",
+        theme="soft",
+        examples=[
+            ["¿Qué información tienes sobre seguros de Auto?"],
+            ["Explícame las coberturas básicas de un seguro de Auto"],
+            ["¿Cuáles son los requisitos para contratar un seguro de Auto?"]    
+        ]
+    )
+    
+    try:
+        # Iniciar la interfaz web
+        await demo.launch(
+            server_port=7860,
+            share=False,
+            show_api=False,
+            inline=False
+        )
     except Exception as e:
         logger.error("Error en la ejecución principal", exc_info=True)
         print(f"\nError: {str(e)}")
