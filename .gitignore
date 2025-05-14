@@ -1,0 +1,28 @@
+# Entorno virtual
+venv/
+env/
+ENV/
+
+# Archivos de configuración
+.env
+
+# Archivos de caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs
+*.log
+process.log
+
+# Directorios de datos
+data/
+insurance_chroma_db/
+
+# IDEs
+.vscode/
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
